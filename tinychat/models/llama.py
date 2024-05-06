@@ -10,7 +10,7 @@ from torch import nn
 import torch.nn.functional as F
 import awq_inference_engine
 from transformers.models.llama.modeling_llama import LlamaRotaryEmbedding
-
+import torch.distributed.rpc as rpc
 # from flash_attn.flash_attn_interface import flash_attn_unpadded_func
 
 import tinychat.utils.constants
@@ -262,17 +262,29 @@ class TransformerBlock(nn.Module):
 
 
 class Transformer(nn.Module):
-    def __init__(self, params):
+    def __init__(self, params, workers):
         super().__init__()
         self.params = params
         self.vocab_size = params.vocab_size
         self.n_layers = params.num_hidden_layers
 
         self.embed_tokens = nn.Embedding(params.vocab_size, params.hidden_size)
+        
+        self.rrefs = [];
 
-        self.layers = torch.nn.ModuleList()
-        for layer_id in range(params.num_hidden_layers):
-            self.layers.append(TransformerBlock(layer_id, params))
+        remainder = params.num_hidden_layers%(len(workers))
+        layersPerNode = int((params.num_hidden_layers-remainder)/(len(workers)))
+        layer_id = 0
+        for worker in workers:
+            currentNodeNumLayers = layersPerNode
+            if remainder > 0:
+                currentNodeNumLayers += 1
+                remainder -= 1
+    
+            for x in range(currentNodeNumLayers):
+                self.rrefs.append(rpc.remote(worker,TransformerBlock, args=(layer_id, params)))     
+                layer_id += 1
+           
 
         self.norm = RMSNorm(params.hidden_size, eps=params.rms_norm_eps)
 
@@ -298,8 +310,9 @@ class Transformer(nn.Module):
         if seqlen > 1:
             mask = torch.full((1, 1, seqlen, seqlen), float("-inf"), device=h.device)
             mask = torch.triu(mask, diagonal=start_pos + 1).type_as(h)
-        for layer in self.layers:
-            h = layer(h, start_pos, freqs_cis, mask)
+        for rref in self.rrefs: 
+           h = rref.remote().forward(h, start_pos, freqs_cis, mask)
+        
         h = self.norm(h)
         return h
 
@@ -308,7 +321,7 @@ class LlamaForCausalLM(nn.Module):
     def __init__(self, params):
         super().__init__()
         self.params = params
-        self.model = Transformer(params)
+        self.model = Transformer(params, ["worker1", "worker2"])
         self.lm_head = nn.Linear(params.hidden_size, params.vocab_size, bias=False)
 
     @torch.inference_mode()
