@@ -12,7 +12,7 @@ This readme will go over the current progress made on the Distributed TinyChat p
 
 3. We will ideally use Model Parallel practies to get Tiny Chat cistributed, particually Pipeline Parallelism.  
 
-4. In order to do this we will be using Pytorches RPC library and modifying the llm-awq/tinychat/models/llama.py file
+4. In order to do this we will be using Pytorches RPC library and modifying the [llm-awq/tinychat/models/llama.py](https://github.com/HPCSGOlab/llm-awq/blob/Abrozows_Spring_2024/tinychat/models/llama.py) file
 
     helpful recources will be [RPC_Intro](https://pytorch.org/tutorials/intermediate/rpc_tutorial.html) and [Pipeline_Paralelism](https://pytorch.org/tutorials/intermediate/dist_pipeline_parallel_tutorial.html)
 
