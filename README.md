@@ -1,6 +1,6 @@
 # Distributed TinyChat
 
-if you need to set up AWQ please refer to the original README
+if you need to set up AWQ please refer to the original [README](https://github.com/HPCSGOlab/llm-awq/blob/Abrozows_Spring_2024/AWQ_README.md)
 
 This readme will go over the current progress made on the Distributed TinyChat project. 
 
